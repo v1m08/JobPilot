@@ -1,11 +1,11 @@
 // Autopilot: apply to one job end to end in a background tab.
 //
-//   open posting → reach the form → for each page: rules, Claude for stuck
-//   fields, answers (profile, saved, your answer bank, then Claude drafts)
-//   → Next until Submit → submit; if the site rejects fields, Claude fixes
+//   open posting → reach the form → for each page: rules, AI for stuck
+//   fields, answers (profile, saved, your answer bank, then AI drafts)
+//   → Next until Submit → submit; if the site rejects fields, AI fixes
 //   facts/formats once and resubmits.
 //
-// Submission rule: Claude never writes text answers here. It fills forms
+// Submission rule: AI never writes text answers here. It fills forms
 // (options, formats, matching your own written answers). Text questions with
 // no answer of yours are left empty and the job stops as "needs-you".
 //
@@ -126,8 +126,8 @@ export async function runJob(job, ctx) {
     let attachedResume = false;
     const aiTyped = [];
 
-    // One page of the form: rules, then Claude for stuck fields, then the
-    // real questions (your saved/bank answers first, Claude drafts the rest).
+    // One page of the form: rules, then AI for stuck fields, then the
+    // real questions (your saved/bank answers first, AI drafts the rest).
     for (let page = 0; page < MAX_PAGES; page++) {
       const where = page ? `Page ${page + 1}: ` : "";
       step(`${where}Filling`);
@@ -173,7 +173,7 @@ export async function runJob(job, ctx) {
       if (toFill.length) await Page.fillAnswers(tab, toFill);
       const attested = (await Page.callAll(tab, "checkAttestations")).reduce((a, b) => a + b, 0);
       filledCount += first.filled.length + toFill.length + attested;
-      // Your feedback from the last attempt: Claude corrects those fields.
+      // Your feedback from the last attempt: AI corrects those fields.
       if (ctx.feedback) {
         step(`${where}Applying your feedback`);
         await fixWithFeedback(tab, unstick, ctx.feedback).catch(() => {});
@@ -194,7 +194,7 @@ export async function runJob(job, ctx) {
       if (captcha) blockers.push("CAPTCHA");
       if (blockers.length) return { status: "needs-you", note: `${where}Filled ${filledCount}. Needs you: ${blockers.join("; ")}.`, tabId: tab.id, tailored };
 
-      // Safety net: Autopilot doesn't ask Claude for text answers, but if any
+      // Safety net: Autopilot doesn't ask AI for text answers, but if any
       // AI-written text is on the page, it waits for you.
       if (aiTyped.length || !ctx.settings.autopilot.autoSubmit) {
         return {
@@ -218,7 +218,7 @@ export async function runJob(job, ctx) {
     }
 
     // Submit, wait for the site's confirmation; if it rejects fields, let
-    // Claude fix facts/formats once and resubmit.
+    // AI fix facts/formats once and resubmit.
     for (let attempt = 0; attempt < 2; attempt++) {
       step(attempt ? "Fixing errors and resubmitting" : "Submitting");
       const clicked = (await Page.callAll(tab, "submit")).find((c) => c.clicked);
@@ -234,7 +234,7 @@ export async function runJob(job, ctx) {
         }
         if (states.some((s) => s.confirmed)) {
           await chrome.tabs.remove(tab.id).catch(() => {});
-          return { status: "applied", note: `Submitted (${filledCount} fields${aiUsed ? ", Claude-matched options" : ""}${attempt ? ", fixed after an error" : ""}).`, tailored };
+          return { status: "applied", note: `Submitted (${filledCount} fields${aiUsed ? ", AI-matched options" : ""}${attempt ? ", fixed after an error" : ""}).`, tailored };
         }
         errors = states.flatMap((s) => s.errors);
         if (i >= 4 && errors.length) break;

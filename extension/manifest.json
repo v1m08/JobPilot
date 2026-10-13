@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "JobPilot – Resume Tailor & Autofill",
+  "name": "JobPilot \u2013 Resume Tailor & Autofill",
   "short_name": "JobPilot",
-  "version": "0.17.0",
-  "description": "Turn your resume into editable boxes, tailor it to each job with Claude, and autofill applications with the right PDF attached.",
+  "version": "0.17.1",
+  "description": "Edit your resume, tailor it to jobs with Claude or OpenAI, and autofill applications with the right PDF attached.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA84WuhZtl84mio7oQWAHiIGpSQ/Aavs6twOWZyOyDN/nKjhhLMVreQvUwKmfrIzTB/g1UIqYQiSqUV14ZQuWTrf+MrphNhRYVgPJ7dVAikX/18hffIPaj4Du5JKPk7osRpE34P2a433Vnr/RMItqRi1bthIRo3cbZqGM5uy+BLln/SjL5JdC4EN9tivxUJWapgA2fHdEQkO57mKbm9iIqz5vcRff86EBoAhJVqZmLT18LN8U7FN1o+OCuTQr2IH9s1HBSbHiE6cDg++UL3IyXf2xr1ov3N1+eiOuHiUzG4n7exwqB9PSRd3pIg/N/KjibH2hM86hIKhgp5Nm/lmg3XwIDAQAB",
   "minimum_chrome_version": "116",
   "permissions": [

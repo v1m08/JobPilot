@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// JobPilot ↔ Claude Code bridge (Chrome native messaging host).
+// JobPilot ↔ Claude Code / ChatGPT plan bridge (Chrome native messaging host).
 //
 // Chrome starts this process when the extension calls
 // chrome.runtime.sendNativeMessage("com.jobpilot.claude_bridge", ...).
@@ -19,7 +19,9 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const BRIDGE_VERSION = "1.3.0";
+const BRIDGE_VERSION = "1.4.1";
+const { ChatGPT } = require("./chatgpt.js");
+const chatgpt = new ChatGPT();
 const TIMEOUT_MS = 5 * 60 * 1000;
 
 function loadConfig() {
@@ -60,7 +62,7 @@ process.stdin.on("data", (chunk) => {
     }
     pending++;
     handle(msg)
-      .then(send, (e) => send({ ok: false, error: e.message || String(e), code: e.code }))
+      .then(send, (e) => send({ ok: false, error: e.message || String(e), code: e.code, status: e.status, responseShape: e.responseShape, requestId: e.requestId }))
       .finally(() => {
         pending--;
         if (stdinEnded && pending === 0) process.exit(0);
@@ -69,6 +71,7 @@ process.stdin.on("data", (chunk) => {
 });
 process.stdin.on("end", () => {
   stdinEnded = true;
+  chatgpt.cancelSignIn();
   if (pending === 0) process.exit(0);
 });
 
@@ -249,16 +252,25 @@ async function update(msg) {
   const after = await git(["rev-parse", "HEAD"]);
   // Keep the installed copy of the bridge in sync with the repo.
   let bridgeUpdated = false;
-  const src = path.join(repoDir(), "bridge", "host.js");
-  const dest = path.join(__dirname, "host.js");
-  if (fs.existsSync(src) && path.resolve(src) !== path.resolve(dest) && fs.readFileSync(src, "utf8") !== fs.readFileSync(dest, "utf8")) {
-    fs.copyFileSync(src, dest);
-    bridgeUpdated = true;
+  for (const [source, target] of [["bridge/host.js", "host.js"], ["bridge/chatgpt.js", "chatgpt.js"], ["extension/lib/openai.js", "openai.mjs"]]) {
+    const src = path.join(repoDir(), source);
+    const dest = path.join(__dirname, target);
+    if (fs.existsSync(src) && path.resolve(src) !== path.resolve(dest) && (!fs.existsSync(dest) || fs.readFileSync(src, "utf8") !== fs.readFileSync(dest, "utf8"))) {
+      fs.copyFileSync(src, dest);
+      bridgeUpdated = true;
+    }
   }
   return { ok: true, pulled: before !== after, bridgeUpdated };
 }
 
 async function handle(msg) {
+  if (msg.type === "chatgpt-status") return { ok: true, session: chatgpt.status(), bridgeVersion: BRIDGE_VERSION };
+  if (msg.type === "chatgpt-sign-in") return { ok: true, session: await chatgpt.signIn(msg.accountId, (url) => send({ event: "chatgpt-authorize", url }), msg.consent === true) };
+  if (msg.type === "chatgpt-cancel") { chatgpt.cancelSignIn(); return { ok: true }; }
+  if (msg.type === "chatgpt-sign-out") return { ok: true, session: await chatgpt.signOut(msg.accountId) };
+  if (msg.type === "chatgpt-select") return { ok: true, session: await chatgpt.select(msg.accountId) };
+  if (msg.type === "chatgpt-models") return { ok: true, models: await chatgpt.models(msg.accountId) };
+  if (msg.type === "chatgpt-run") return { ok: true, data: await chatgpt.run(msg.accountId, msg.model, msg.options) };
   if (msg.type === "update-check") return updateCheck(msg);
   if (msg.type === "update") return update(msg);
   if (msg.type === "latex") return compileLatex(msg.tex || "");

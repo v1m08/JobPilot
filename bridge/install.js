@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// One-time setup: lets the JobPilot extension use your Claude Code login.
+// One-time setup: lets the JobPilot extension use your Claude Code login or ChatGPT plan.
 //
 //   node bridge/install.js               install / update
 //   node bridge/install.js --uninstall   remove
@@ -104,21 +104,20 @@ function doUninstall() {
 
 function doInstall() {
   const claude = findClaude();
-  if (!claude) {
-    log("✗ Couldn't find Claude Code. Install it (https://claude.com/claude-code), run `claude` once to log in, then re-run this installer.");
+  if (Number(process.versions.node.split(".")[0]) < 20) {
+    log("✗ JobPilot's ChatGPT bridge needs Node.js 20 or newer.");
     process.exit(1);
   }
-
   let version = "";
-  try {
-    version = execFileSync(claude[0], [...claude.slice(1), "--version"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
-  } catch (e) {
-    log(`✗ Found Claude Code at ${claude.join(" ")} but it didn't run: ${e.message}`);
-    process.exit(1);
+  if (claude) {
+    try { version = execFileSync(claude[0], [...claude.slice(1), "--version"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim(); }
+    catch { log("· Claude Code did not run. ChatGPT sign-in is still available."); }
   }
 
   fs.mkdirSync(installDir, { recursive: true });
   fs.copyFileSync(path.join(__dirname, "host.js"), path.join(installDir, "host.js"));
+  fs.copyFileSync(path.join(__dirname, "chatgpt.js"), path.join(installDir, "chatgpt.js"));
+  fs.copyFileSync(path.join(__dirname, "../extension/lib/openai.js"), path.join(installDir, "openai.mjs"));
   // If this is a git clone, remember it so the extension can update itself.
   const repo = path.resolve(__dirname, "..");
   const repoDir = fs.existsSync(path.join(repo, ".git")) ? repo : null;
@@ -126,7 +125,7 @@ function doInstall() {
 
   fs.writeFileSync(
     path.join(installDir, "config.json"),
-    JSON.stringify({ claudeCommand: claude, extraPath: [path.dirname(claude[0])], repoDir, gitCommand }, null, 2)
+    JSON.stringify({ claudeCommand: claude, extraPath: claude ? [path.dirname(claude[0])] : [], repoDir, gitCommand }, null, 2)
   );
 
   // Launcher Chrome runs (it can't run .js files directly).
@@ -142,7 +141,7 @@ function doInstall() {
 
   const manifest = {
     name: HOST_NAME,
-    description: "JobPilot bridge to Claude Code",
+    description: "JobPilot bridge for Claude Code and ChatGPT plan usage",
     path: launcher,
     type: "stdio",
     allowed_origins: [`chrome-extension://${extensionId}/`],
@@ -159,12 +158,12 @@ function doInstall() {
     }
   }
 
-  log(`✓ Found ${version}`);
+  log(version ? `✓ Found ${version}` : "· Claude Code not available; ChatGPT plan usage does not require it.");
   log(`✓ Bridge installed in ${installDir}`);
   log("✓ Registered with your browser(s)");
   log(repoDir ? `✓ Auto-update enabled from ${repoDir}` : "· Not a git clone, so auto-update will only notify you (use git clone to enable it)");
   log("");
-  log("Next: in JobPilot → Settings, choose \"My Claude subscription (Claude Code)\" and click Test.");
+  log("Next: in JobPilot → Settings → Connect AI, choose your Claude or ChatGPT subscription.");
   log("If Claude Code isn't logged in yet, run `claude` in a terminal and log in first.");
 }
 

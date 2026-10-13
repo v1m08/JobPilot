@@ -1,5 +1,14 @@
-// Claude calls: resume parsing (once) and per-job bullet rewrites + answers.
+// Provider-independent AI calls: resume parsing and per-job rewrites + answers.
 import { Anthropic } from "../vendor/anthropic.js";
+import { callOpenAI, DEFAULT_OPENAI_MODEL } from "./openai.js";
+export { OPENAI_MODELS } from "./openai.js";
+
+export function isConfigured(settings) {
+  if (settings.provider === "claude-code") return true;
+  if (settings.provider === "chatgpt") return !!settings.chatgptAccountId && !!settings.chatgptModel && settings.chatgptPlanEnabled === true;
+  if (settings.provider === "openai") return !!settings.openaiApiKey?.trim();
+  return !!settings.apiKey?.trim();
+}
 
 export const MODELS = [
   { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 (fast, recommended)" },
@@ -53,15 +62,17 @@ export function bridge(msg) {
       if (err) {
         const m = err.message || "";
         if (/not found|forbidden|not allowed/i.test(m)) {
-          return reject(new Error("The Claude Code bridge isn't installed yet. Follow the one-time setup in Settings → Connect Claude."));
+          return reject(new Error("The JobPilot bridge isn't installed yet. Run `node bridge/install.js`, restart the browser, then open Settings → Connect AI."));
         }
-        if (/exited/i.test(m)) return reject(new Error("The Claude Code bridge stopped unexpectedly. Re-run `node bridge/install.js`, then try again."));
+        if (/exited/i.test(m)) return reject(new Error("The JobPilot bridge stopped unexpectedly. Re-run `node bridge/install.js`, then try again."));
         return reject(new Error(`Bridge error: ${m}`));
       }
-      if (!resp) return reject(new Error("No response from the Claude Code bridge."));
+      if (!resp) return reject(new Error("No response from the JobPilot bridge."));
       if (!resp.ok) {
-        const e = new Error(resp.error || "Claude Code failed.");
+        const e = new Error(/Unknown request type: chatgpt/.test(resp.error || "") ? "Update the JobPilot bridge: run `node bridge/install.js` again, then restart the browser." : resp.error || "JobPilot bridge failed.");
         e.code = resp.code;
+        e.status = resp.status;
+        if (e.code === "subscription_sharing_usage_limit_exceeded") chrome.storage.local.set({ autopilotStop: true }).catch(() => {});
         return reject(e);
       }
       resolve(resp);
@@ -82,6 +93,50 @@ async function callViaClaudeCode(settings, { system, content, schema, effort }) 
 
 export async function pingBridge() {
   return bridge({ type: "ping" });
+}
+
+export const chatGPTStatus = async () => (await bridge({ type: "chatgpt-status" })).session;
+export const chatGPTModels = async (accountId) => (await bridge({ type: "chatgpt-models", accountId })).models;
+export const selectChatGPTAccount = async (accountId) => (await bridge({ type: "chatgpt-select", accountId })).session;
+export const signOutChatGPT = async (accountId) => (await bridge({ type: "chatgpt-sign-out", accountId })).session;
+
+let signInPort;
+export function cancelChatGPTSignIn() { signInPort?.disconnect(); }
+export function signInChatGPT(accountId, consent = false) {
+  if (signInPort) return Promise.reject(new Error("A ChatGPT sign-in is already running."));
+  return new Promise((resolve, reject) => {
+    const port = chrome.runtime.connectNative(BRIDGE_HOST);
+    signInPort = port;
+    let settled = false;
+    function finish(error, session) {
+      if (settled) return;
+      settled = true;
+      signInPort = null;
+      port.disconnect();
+      if (error) reject(error); else resolve(session);
+    }
+    port.onDisconnect.addListener(() => {
+      const message = chrome.runtime.lastError?.message;
+      finish(new Error(message ? `JobPilot bridge disconnected: ${message}. Re-run node bridge/install.js if needed.` : "ChatGPT sign-in cancelled."));
+    });
+    port.onMessage.addListener((response) => {
+      if (response.event === "chatgpt-authorize") {
+        try {
+          const url = new URL(response.url);
+          if (url.origin !== "https://auth.openai.com" || url.pathname !== "/api/accounts/authorize") throw new Error("Unexpected ChatGPT sign-in URL.");
+          chrome.tabs.create({ url: url.href }).catch((error) => finish(error));
+        } catch (error) { finish(error); }
+        return;
+      }
+      finish(response.ok ? null : new Error(response.error || "ChatGPT sign-in failed. Re-run the bridge installer if needed."), response.session);
+    });
+    port.postMessage({ type: "chatgpt-sign-in", accountId, consent });
+  });
+}
+
+async function callViaChatGPT(settings, options) {
+  const response = await bridge({ type: "chatgpt-run", accountId: settings.chatgptAccountId, model: settings.chatgptModel, options });
+  return response.data;
 }
 
 // ------------------------------------------------------------- caching
@@ -110,16 +165,25 @@ async function cached(key, fn) {
 }
 
 function modelFor(settings) {
+  if (settings.provider === "chatgpt") return `chatgpt:${settings.chatgptAccountId}:${settings.chatgptModel}`;
+  if (settings.provider === "openai") return `openai:${settings.openaiModel || DEFAULT_OPENAI_MODEL}`;
   return settings.provider === "claude-code" ? `cc:${settings.ccModel || "sonnet"}` : `api:${settings.model}`;
 }
 
 async function callJSON(settings, opts) {
-  const key = await sha256(JSON.stringify([modelFor(settings), opts.system, opts.content, opts.schema, opts.effort]));
+  if (!isConfigured(settings)) throw new Error("Connect AI in Settings first.");
+  if (settings.provider === "chatgpt") {
+    const session = await chatGPTStatus();
+    if (!session.accounts.some((a) => a.id === settings.chatgptAccountId && a.planEnabled)) throw new Error("Continue with ChatGPT in Settings to enable plan usage.");
+  }
+  const key = await sha256(JSON.stringify([modelFor(settings), opts.system, opts.content, opts.schema, opts.effort, opts.maxTokens]));
   return cached(key, () => callJSONUncached(settings, opts));
 }
 
 async function callJSONUncached(settings, { system, content, schema, effort = "low", maxTokens = 16000 }) {
   if (settings.provider === "claude-code") return callViaClaudeCode(settings, { system, content, schema, effort });
+  if (settings.provider === "chatgpt") return callViaChatGPT(settings, { system, content, schema, effort });
+  if (settings.provider === "openai") return callOpenAI(settings, { system, content, schema, effort, maxTokens });
   const client = makeClient(settings);
   const params = {
     model: settings.model,
@@ -149,6 +213,22 @@ async function callJSONUncached(settings, { system, content, schema, effort = "l
 }
 
 export async function testConnection(settings) {
+  if (settings.provider === "chatgpt") {
+    const r = await callViaChatGPT(settings, {
+      system: "Reply in the requested JSON format.", content: 'Reply with ok set to "OK".',
+      schema: obj({ ok: { type: "string", enum: ["OK"] } }),
+    });
+    if (r.ok !== "OK") throw new Error("ChatGPT returned an unexpected connection test response.");
+    return r.ok;
+  }
+  if (settings.provider === "openai") {
+    const r = await callOpenAI(settings, {
+      system: "Reply in the requested JSON format.", content: 'Reply with ok set to "OK".',
+      schema: obj({ ok: { type: "string", enum: ["OK"] } }), maxTokens: 2048,
+    });
+    if (r.ok !== "OK") throw new Error("OpenAI returned an unexpected connection test response.");
+    return r.ok;
+  }
   if (settings.provider === "claude-code") {
     const ping = await pingBridge();
     const r = await callViaClaudeCode(settings, {

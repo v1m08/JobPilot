@@ -1,6 +1,6 @@
-// "Autofill where it can, then ask Claude when it gets stuck."
+// "Autofill where it can, then ask AI when it gets stuck."
 //
-// After the rule-based fill, the fields still empty go to one short Claude
+// After the rule-based fill, the fields still empty go to one short AI
 // call (ai.js resolveFields). What happens next depends on what the answer is:
 //   fact        -> filled (green): an option or value straight from your profile
 //   preference  -> filled as a draft (purple): a choice you should glance at
@@ -30,11 +30,11 @@ export async function resolveStuck(tab, { settings, profile, resumeText, posting
     const values = (a.answer || []).map((v) => String(v).trim()).filter(Boolean);
     const label = q.question.slice(0, 80);
     if (!values.length || a.basis === "writing" || a.basis === "unknown" || (a.basis === "preference" && isText(q))) {
-      if (q.required) result.skipped.push({ label, reason: a.basis === "unknown" ? "Claude doesn't have this information" : "Needs your own words" });
+      if (q.required) result.skipped.push({ label, reason: a.basis === "unknown" ? "AI doesn't have this information" : "Needs your own words" });
       continue;
     }
     const fact = a.basis === "fact";
-    toFill.push({ qid: q.qid, answer: q.kind === "multi_choice" || q.kind === "dropdown" ? values : values[0], mark: fact ? "filled" : "draft", note: fact ? "matched by Claude from your profile" : "Claude's pick — check it" });
+    toFill.push({ qid: q.qid, answer: q.kind === "multi_choice" || q.kind === "dropdown" ? values : values[0], mark: fact ? "filled" : "draft", note: fact ? "matched by AI from your profile" : "AI's pick — check it" });
     (fact ? result.filled : result.drafted).push({ label, value: values.join(", ") });
   }
   if (toFill.length) await Page.fillAnswers(tab, toFill);
@@ -42,7 +42,7 @@ export async function resolveStuck(tab, { settings, profile, resumeText, posting
 }
 
 // After Submit: fields the site rejected ("Enter a valid phone number").
-// Claude reads the error and the current value and fixes facts or formats;
+// AI reads the error and the current value and fixes facts or formats;
 // it never writes your own-words answers here either. -> number fixed
 export async function fixInvalid(tab, { settings, profile, resumeText, posting = "", instructions = "" }) {
   const lists = await Page.callAll(tab, "invalidFields");
@@ -61,7 +61,7 @@ export async function fixInvalid(tab, { settings, profile, resumeText, posting =
   return toFill.length ? Page.fillAnswers(tab, toFill) : 0;
 }
 
-// "You made mistakes, here's what to change": Claude edits only the fields
+// "You made mistakes, here's what to change": AI edits only the fields
 // your feedback is about. -> { changed: [{ label, from, to }], note }
 export async function fixWithFeedback(tab, { settings, profile, resumeText, posting = "", instructions = "" }, feedback) {
   const fields = (await Page.callAll(tab, "snapshotFields")).flat();

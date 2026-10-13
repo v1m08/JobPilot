@@ -2,11 +2,11 @@
 
 A Chrome extension that makes applying to internships fast:
 
-1. **Upload your resume once.** Claude turns it into editable boxes (sections, entries, bullets, skills).
+1. **Upload your resume once.** Your selected AI provider turns it into editable boxes (sections, entries, bullets, skills).
 2. **Browse jobs** in the side panel. The list is pulled from the SimplifyJobs Summer 2027 internship list, and you can mark jobs as applied.
-3. **Tailor per job.** Claude reads the posting and suggests rewording and reordering of your *existing* bullets and skills to match its keywords. You approve each change, and it never invents experience.
+3. **Tailor per job.** AI reads the posting and suggests rewording and reordering of your *existing* bullets and skills to match its keywords. You approve each change, and it never invents experience.
 4. **Autofill.** On the application page it fills your name, contact info, school, links, work authorization, sponsorship and EEO answers, and attaches the tailored PDF, named like `Alex_Rivera_Resume_Stripe.pdf`.
-5. **Answer the real questions.** Claude drafts answers to "Why this company?" style questions. They're highlighted purple so you can review them before you click Submit.
+5. **Answer the real questions.** AI drafts answers to "Why this company?" style questions. They're highlighted purple so you can review them before you click Submit.
 
 Downloads go to `Downloads/Resumes/` and overwrite files with the same name, so you never end up with `Resume (100).pdf`.
 
@@ -14,7 +14,7 @@ Downloads go to `Downloads/Resumes/` and overwrite files with the same name, so 
 
 Every PDF uses the style of [Jake's Resume](https://github.com/jakegut/resume) LaTeX template (MIT). `extension/lib/latex.js` turns the resume JSON into `.tex` deterministically: the same JSON always gives the same file.
 
-- **Keeps your resume's layout.** When Claude reads your PDF it also records how each section is laid out: organization or role on top, dates on the first or second line, one-line project headings with a GitHub link, single-line award rows, bold labels inside bullets, and the order of your contact line. You can change any of it under **Layout** on each section in the Resume tab. Resumes uploaded before this existed: click **Re-parse**.
+- **Keeps your resume's layout.** When AI reads your PDF it also records how each section is laid out: organization or role on top, dates on the first or second line, one-line project headings with a GitHub link, single-line award rows, bold labels inside bullets, and the order of your contact line. You can change any of it under **Layout** on each section in the Resume tab. Resumes uploaded before this existed: click **Re-parse**.
 - **Always one page.** If a tailored resume runs long, every font size and gap shrinks together (down to 85%) until it fits. Tailoring hides the least relevant bullets before it lets text get smaller than about 92%.
 
 - **Exact LaTeX output:** if you use the Claude Code bridge and have a TeX engine installed (MacTeX on Mac, MiKTeX on Windows, TeX Live, or Tectonic), JobPilot compiles the `.tex` on your computer with `pdflatex`. Run `brew install --cask mactex-no-gui`, or `brew install tectonic` for something smaller.
@@ -32,9 +32,7 @@ It also works in Brave, Edge and Arc (all Chromium-based).
 
 ## Set up
 
-The first time you open the panel, a **setup guide** walks you through these steps (connect Claude, upload your resume, check your profile, confirm what jobs to look for, optional answers, first application). **Go** on a step jumps to the right place and highlights it; the guide stays at the top of every tab until you're done or hide it.
-
-### 1. Connect Claude (pick one)
+### 1. Connect AI (pick one)
 
 **Option A: your Claude Pro/Max subscription, via Claude Code (no API key)**
 
@@ -46,13 +44,32 @@ JobPilot can't sign in with your Claude account directly; Anthropic only allows 
    node bridge/install.js
    ```
    Or just ask Claude Code: *"run node bridge/install.js"*.
-3. Restart your browser. In JobPilot → **Settings → Connect Claude**, choose **My Claude subscription** and click **Save & test**.
+3. Restart your browser. In JobPilot → **Settings → Connect AI**, choose **My Claude subscription** and click **Save & test**.
 
 The installer copies the bridge to `~/.jobpilot/bridge` and registers it with Chrome, Brave, Edge, Arc and Chromium (on Windows, under the current user's registry). Only the JobPilot extension can talk to it. To remove it: `node bridge/install.js --uninstall`. If you install or move Claude Code later, re-run the installer.
 
 **Option B: an Anthropic API key (pay-as-you-go)**
 
 Choose **Anthropic API key** in Settings and paste a key from [console.anthropic.com → API Keys](https://console.anthropic.com/settings/keys) (add a few dollars of credit under Billing). Tailoring costs roughly 5–15¢ per job on Opus 5.5, about half that on Sonnet 5.5.
+
+**Option C: OpenAI API key (ChatGPT models, pay-as-you-go)**
+
+Choose **OpenAI API key (ChatGPT models)** under **Settings → Connect AI**. Create a key at [platform.openai.com → API keys](https://platform.openai.com/api-keys), enable API billing, paste the key, choose **GPT-5 mini** or **GPT-4.1**, and click **Save & test**. This option uses separate OpenAI API billing; it does not sign in to ChatGPT or use a ChatGPT subscription.
+
+OpenAI supports the same workflows: PDF resume parsing, tailoring, draft answers, job targeting, feedback, and resolving stuck fields. It uses the [Responses API with structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs) and [PDF file inputs](https://developers.openai.com/api/docs/guides/file-inputs). The existing checks on rewrites and Autopilot's rule against writing text answers apply to every provider. Keys and model choices are saved separately, so switching providers preserves your Claude setup. With OpenAI selected, PDFs use the built-in renderer; local LaTeX compilation still uses the Claude Code bridge option.
+
+**Option D: your ChatGPT Plus/Pro plan (no API key)**
+
+JobPilot supports OpenAI's [Sign in with ChatGPT flow for local open-source apps](https://developers.openai.com/siwc/token-sharing-open-source). Eligible accounts can authorize use of their ChatGPT plan or available credits; account/workspace eligibility and app usage limits still apply.
+
+1. Install [Node.js](https://nodejs.org) **20 or newer**. Claude Code is optional for this option.
+2. From the repo folder, run `node bridge/install.js` (run it again if you previously installed the bridge), then restart the browser and reload JobPilot in `chrome://extensions`.
+3. Under **Settings → Connect AI**, choose **My ChatGPT subscription**, then **Continue with ChatGPT**. Keep the JobPilot panel open while you sign in and authorize plan usage in the new browser tab.
+4. Choose a model from your account's live catalog and click **Save & test**. The first successful authorization shows a confirmation explaining plan usage.
+
+**Add account** creates a separate account/workspace connection. The account picker keeps these registrations separate, including connections with the same email. **Continue with ChatGPT** reconnects the selected account, or lets you enable plan usage if you initially granted only identity access. **Manage usage** opens ChatGPT usage settings. **Sign out** attempts remote revocation, clears local tokens, and retains the registration so you can sign in again. If remote revocation cannot be confirmed, disconnect JobPilot in ChatGPT settings too.
+
+The bridge stores OAuth credentials in `~/.jobpilot/chatgpt/accounts.json`, with owner-only directory/file permissions on Unix. Credentials are never stored in browser storage; the extension saves only the selected connection ID, model and permission status. Token refresh is serialized across bridge processes. Sign out before uninstalling the bridge if you want to end the session; uninstalling the bridge alone preserves its separate credentials directory. Resume PDFs are sent directly as file input to the public Responses API. Requests use `store: false` and `stream: true`, following the [preview request requirements](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations). Requests that hit subscription limits or lose permission stop and report the error; JobPilot does not switch to API billing automatically. With ChatGPT selected, PDFs use the built-in renderer.
 
 ### 2. Upload your resume
 
@@ -64,7 +81,7 @@ Choose **Anthropic API key** in Settings and paste a key from [console.anthropic
 
 **Flexible graduation date (optional).** If you could graduate any time in a range (say Dec 2028 by credits, May 2030 on the normal track), set *Earliest* and *Latest* under **Settings → Application profile → Flexible graduation date**. For each job, JobPilot reads who the posting is for ("graduating between Dec 2028 and Jun 2029", "class of 2029", "first-year students", "rising juniors"…) and picks the date in your range that fits, closest to your usual one. That date goes on that job's tailored resume (shown as a *Graduation* change you can untick) and into that application's graduation and class-year answers. Postings that don't say keep your usual date.
 
-**Cover letter (optional).** In **Resume → Cover letter**, write an opening, a "why this company" paragraph, a closing, and a few short experience paragraphs, all in your own words. For each job, tailoring picks the experience paragraphs that best match the posting and fills in `{Company}` and `{Role}`. If you put `{Hook}` in your why paragraph, Claude writes one sentence there about something specific in the posting, and may lightly reword your chosen paragraphs toward its terms. Those AI parts appear as *Cover letter* changes you can untick, and they're checked like resume rewrites (no new numbers, tools or skills). Autopilot leaves them out. The PDF uses your resume's header and fonts and is attached when a form has a cover letter field (Settings → Files & formatting).
+**Cover letter (optional).** In **Resume → Cover letter**, write an opening, a "why this company" paragraph, a closing, and a few short experience paragraphs, all in your own words. For each job, tailoring picks the experience paragraphs that best match the posting and fills in `{Company}` and `{Role}`. If you put `{Hook}` in your why paragraph, AI writes one sentence there about something specific in the posting, and may lightly reword your chosen paragraphs toward its terms. Those AI parts appear as *Cover letter* changes you can untick, and they're checked like resume rewrites (no new numbers, tools or skills). Autopilot leaves them out. The PDF uses your resume's header and fonts and is attached when a form has a cover letter field (Settings → Files & formatting).
 
 ### 4. Updates
 
@@ -86,10 +103,10 @@ Updates never touch your data. Your resume, profile and settings live in the bro
 For each job:
 
 1. Opens the posting and clicks through to the application form.
-2. On each page: fills what it can from your profile and saved answers (no AI), then one short Claude pass for fields that got stuck. Claude only *fills the form*: it picks the option that matches your profile (Degree "Bachelor's Degree"), chooses preference dropdowns, and fixes formats. It never writes answers.
-3. Text questions are answered only with **your own words**: saved answers, or **Settings → Your answers**, a bank of answers to common questions you write once. Claude recognizes when a differently-worded question asks the same thing ("What excites you about joining X?" ↔ "Why do you want to work at {Company}?") and uses your answer as written.
+2. On each page: fills what it can from your profile and saved answers (no AI), then one short AI pass for fields that got stuck. AI only *fills the form*: it picks the option that matches your profile (Degree "Bachelor's Degree"), chooses preference dropdowns, and fixes formats. It never writes answers.
+3. Text questions are answered only with **your own words**: saved answers, or **Settings → Your answers**, a bank of answers to common questions you write once. AI recognizes when a differently-worded question asks the same thing ("What excites you about joining X?" ↔ "Why do you want to work at {Company}?") and uses your answer as written.
 4. Tailors your resume (and cover letter, if you wrote one) and attaches them.
-5. Clicks **Next/Continue** through multi-page forms (up to 6 pages), then **Submit**. If the site rejects a field ("enter a valid phone number"), Claude fixes the fact or format once and resubmits.
+5. Clicks **Next/Continue** through multi-page forms (up to 6 pages), then **Submit**. If the site rejects a field ("enter a valid phone number"), AI fixes the fact or format once and resubmits.
 6. Stops and leaves the tab for you when:
    - a question needs **your own words** and none of your answers fit (add one to *Your answers* and it's covered next time),
    - something is blocked (CAPTCHA, login, a missing required field),
@@ -107,31 +124,21 @@ Settings → Autopilot: auto-submit on/off, jobs at once, a randomized pause bet
 - AI results are cached by input, so re-running the same job reuses the earlier answer instantly.
 - AI rewrites are checked in code: a rewrite is rejected if it changes a number or adds a tool or skill that isn't on your resume.
 - "Save for next time" on an AI answer reuses it for the same question on later applications, with no AI call.
-- Default model is Sonnet, which is fast. Pick Opus in Settings for the best writing.
+- Claude defaults to Sonnet; OpenAI defaults to GPT-5 mini. Choose the model for your selected provider in Settings.
 
-## Sites that need an account (opt-in)
+## Telling AI what it got wrong
 
-Some sites (Workday and others) make you sign in before applying. **Settings → Accounts & sign-in** lets JobPilot handle that, after you read what it does and turn it on yourself:
+Wherever AI did something, there's a way to say what to change:
 
-- **Sign in with Google**: when a site offers it, JobPilot clicks it, picks your Google account (the one matching your profile email) and continues past Google's "share your name and email" screen. You sign in to Google yourself, once, in this browser. JobPilot never sees or types your Google password, and stops if Google asks for it, wants to verify it's you, or the site asks for more than your basic profile.
-- **Create accounts** (off by default): when there's no Google option, JobPilot signs up with your profile email and a generated password per site, accepting the site's terms for you. Passwords are listed in Settings (show / copy / forget) and kept in this browser's extension storage, which isn't encrypted.
-- **Verification codes**: codes sites email you are read from the Gmail inbox you're signed into in this browser (unread emails only; nothing is sent). Sites that email a confirmation *link* instead stop as *Needs you*.
-
-Autopilot uses this whenever it hits a sign-in wall (and stops attempting account-only sites like Workday as *Apply manually* once it's on); the Apply tab has a **Sign in / create an account on this page** button. CAPTCHAs always stop it. Google's sign-in pages and Gmail's inbox feed aren't official interfaces, so Google may flag automated sign-ins or change them; JobPilot falls back to *Needs you* when anything doesn't match.
-
-## Telling Claude what it got wrong
-
-Wherever Claude did something, there's a way to say what to change:
-
-- **Apply tab → after Autofill → "Something's wrong? Tell Claude"**: e.g. *"Start date should be August 2026, and pick Summer 2027 Internship instead of Both."* Claude reads every field on the page with its current value and changes only the ones your note is about, showing *field: old → new*.
+- **Apply tab → after Autofill → "Something's wrong? Tell AI"**: e.g. *"Start date should be August 2026, and pick Summer 2027 Internship instead of Both."* AI reads every field on the page with its current value and changes only the ones your note is about, showing *field: old → new*.
 - **Tailored resume → "Redo with feedback"**: re-runs tailoring with your note (e.g. *"don't reword the Princeton bullets"*).
-- **Autopilot queue**: *Fix with feedback* corrects a job whose tab is still open; *Try again with feedback* re-runs a failed job, and Claude applies your note after filling.
+- **Autopilot queue**: *Fix with feedback* corrects a job whose tab is still open; *Try again with feedback* re-runs a failed job, and AI applies your note after filling.
 
-Tick **Remember this for every application** and the note becomes a standing instruction (**Settings → Instructions for Claude**) used on every job, including Autopilot runs. The no-AI-writing rule still holds: Claude can change options and facts, or paste text you typed in the note, but it won't write an answer itself.
+Tick **Remember this for every application** and the note becomes a standing instruction (**Settings → Instructions for AI**) used on every job, including Autopilot runs. The no-AI-writing rule still holds: AI can change options and facts, or paste text you typed in the note, but it won't write an answer itself.
 
 ## Jobs that fit your resume
 
-When your resume is parsed, Claude reads it once and decides what you should be looking for: the categories (Software, AI/ML/Data, Quant, Product, Hardware), title words that mean a strong fit, title words that rule a role out (other engineering disciplines, unrelated functions), and the degree you're pursuing. It's in **Settings → What jobs to look for**, where you can change anything or have it re-read your resume.
+When your resume is parsed, AI reads it once and decides what you should be looking for: the categories (Software, AI/ML/Data, Quant, Product, Hardware), title words that mean a strong fit, title words that rule a role out (other engineering disciplines, unrelated functions), and the degree you're pursuing. It's in **Settings → What jobs to look for**, where you can change anything or have it re-read your resume.
 
 Every listing is then scored against it without AI:
 
@@ -180,11 +187,11 @@ Colors on the page: **green** = filled, **amber** = needs you, **purple** = AI d
 
 Multi-page forms: click **Autofill this page** again on each step.
 
-**When autofill gets stuck.** After filling what it can from your profile, JobPilot sends the leftover fields to one short Claude call. Options that match your profile (Degree "Bachelor's Degree" for "Bachelor of Science") are filled green. Choices your profile doesn't state (which term, which team) are filled purple for you to check. Anything that needs your own words, or a fact Claude doesn't have, is left empty and flagged amber. Searchable dropdowns built with react-select (new Greenhouse boards, Ashby and others) are filled through the component itself, so they work even while the side panel has focus.
+**When autofill gets stuck.** After filling what it can from your profile, JobPilot sends the leftover fields to one short AI call. Options that match your profile (Degree "Bachelor's Degree" for "Bachelor of Science") are filled green. Choices your profile doesn't state (which term, which team) are filled purple for you to check. Anything that needs your own words, or a fact AI doesn't have, is left empty and flagged amber. Searchable dropdowns built with react-select (new Greenhouse boards, Ashby and others) are filled through the component itself, so they work even while the side panel has focus.
 
 ## Privacy
 
-Everything (resume, profile, API key, applied list) is stored in `chrome.storage.local` in your browser profile. Data only leaves your machine when you use an AI feature, and then it goes only to Anthropic, either through Claude Code on your computer or through the API.
+Your resume, profile, API keys and applied list are stored in `chrome.storage.local` in your browser profile. AI requests send resume and application context to your selected provider: Anthropic through Claude Code or its API, or OpenAI through its API using your API key or authorized ChatGPT plan. Subscription OAuth tokens stay in the local bridge credential file described above. API keys are sent only to their respective provider for authentication. OpenAI requests set `store: false`; provider retention policies still apply. Job listings, eligibility lookups and update checks also contact the services described above.
 
 ## Development
 
@@ -193,13 +200,17 @@ extension/          the unpacked extension (no build step needed)
   sidepanel/        UI (vanilla JS modules)
   content/          autofill engine injected into job pages
   lib/              sources.js (GitHub repos), keywords.js + answers.js (deterministic),
-                    tailor.js (per-job pipeline), autopilot.js, ai.js, latex.js, pdf.js,
+                    tailor.js (per-job pipeline), autopilot.js, ai.js + openai.js (provider adapters), latex.js, pdf.js,
                     update.js (self-update from GitHub)
   fonts/            CMU Serif (Computer Modern, SIL OFL) for the built-in renderer
   vendor/           bundled @anthropic-ai/sdk and jsPDF
-bridge/             native messaging host that runs Claude Code (`claude -p`), compiles LaTeX, and pulls updates; plus its installer
+bridge/             native messaging host for Claude Code (`claude -p`), ChatGPT plan sign-in/inference, LaTeX and updates; plus its installer
 ```
 
 Bump `version` in `extension/manifest.json` when you ship something, so people without the bridge get notified. People with the bridge see every new commit.
 
 Nothing personal belongs in this repo: all user data stays in `chrome.storage.local`, and defaults live in `extension/lib/store.js`.
+
+### Verify AI provider integration
+
+Run `node --test tests/*.test.mjs` for mocked provider and subscription tests (no API key or billing required). These cover OpenAI PDF/JSON requests, Claude routing, OAuth callbacks and signed identity validation, permission checks, rotating-token refresh, model discovery, streaming failures, sign-out, and bridge packaging. The subscription tests bind only to localhost and use temporary credential files; all OpenAI responses are mocked. For a live check, load the extension, choose a provider under **Settings → Connect AI**, click **Save & test**, and upload a resume.
