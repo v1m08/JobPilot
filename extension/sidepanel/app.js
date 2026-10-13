@@ -13,7 +13,7 @@ import * as C from "../lib/cover.js";
 import * as E from "../lib/eligibility.js";
 import * as Fit from "../lib/fit.js";
 import * as Accounts from "../lib/accounts.js";
-import { gmailAccount } from "../lib/gmail.js";
+import { gmailAccount, testGmail } from "../lib/gmail.js";
 import * as Sources from "../lib/sources.js";
 import * as Autopilot from "../lib/autopilot.js";
 import * as Ans from "../lib/answers.js";
@@ -2269,7 +2269,30 @@ function accountsCard() {
       )
     );
   }
-  card.append(h("div", { class: "row end", style: { marginTop: "8px" } }, h("button", { class: "btn ghost small", onclick: () => ((a.enabled = false), saveSettings(), renderSettings()) }, "Turn off")));
+  card.append(
+    h(
+      "div",
+      { class: "row", style: { marginTop: "8px" } },
+      // Shows whose inbox JobPilot reads and how many unread emails it sees; no email content.
+      h(
+        "button",
+        {
+          class: "btn small",
+          disabled: S.busy.gmailTest,
+          onclick: () =>
+            withBusy("gmailTest", async () => {
+              const r = await testGmail(S.profile.email);
+              acctUi.gmail = r.owner || "";
+              acctUi.test = r;
+            }),
+        },
+        S.busy.gmailTest ? [spinner(), " Testing…"] : "Test Gmail"
+      ),
+      acctUi.test ? h("span", { class: `pill ${acctUi.test.ok ? "good" : "warn"}`, style: { whiteSpace: "normal" } }, acctUi.test.note) : null,
+      h("span", { class: "spacer" }),
+      h("button", { class: "btn ghost small", onclick: () => ((a.enabled = false), saveSettings(), renderSettings()) }, "Turn off")
+    )
+  );
   return card;
 }
 

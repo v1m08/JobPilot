@@ -15,7 +15,7 @@
 // -> { ok, note }. Never solves CAPTCHAs.
 import * as Page from "./page.js";
 import { sleep } from "./clock.js";
-import { waitForCode } from "./gmail.js";
+import { waitForEmail } from "./gmail.js";
 import { get, set } from "./store.js";
 
 // Workday tenants (nvidia.wd5.myworkdayjobs.com) each need their own account.
@@ -97,19 +97,36 @@ async function viaGoogle(tab, { email, step }) {
   }
 }
 
-// Fill a code the site emailed (read from Gmail), if the page asks for one.
-async function handleCode(tab, { email, hint, since, step, settings }) {
+// After sign-up / sign-in the site may email a code (page asks for it) or a
+// confirm link (page says "check your email"). Read it from Gmail and use it.
+async function handleEmail(tab, { email, hint, since, step, settings }) {
   const p = await page(tab);
-  if (p.kind === "check-email") return { ok: false, note: "The site emailed you a link to confirm your account. Open it, then Try again." };
-  if (p.kind !== "code") return { ok: true };
-  if (!settings.accounts?.readGmail) return { ok: false, note: "The site emailed you a code. Enter it in the tab, or turn on reading codes from Gmail in Settings." };
-  step("Waiting for the emailed code");
-  const got = await waitForCode({ email, sinceMs: since, hint, timeoutMs: 180000 });
-  if (!got) return { ok: false, note: "No code arrived in Gmail within 3 minutes (are you signed in to Gmail in this browser?). Enter it in the tab, then Try again." };
-  await call(tab, "fillCode", [got.code]);
-  await call(tab, "submitAccount");
-  await sleep(2500);
-  return { ok: true };
+  if (p.kind !== "code" && p.kind !== "check-email") return { ok: true };
+  if (!settings.accounts?.readGmail) {
+    return { ok: false, note: p.kind === "code" ? "The site emailed you a code. Enter it in the tab, or turn on reading Gmail in Settings → Accounts & sign-in." : "The site emailed you a link to confirm your account. Open it, then Try again." };
+  }
+  step(p.kind === "code" ? "Waiting for the emailed code" : "Waiting for the confirmation email");
+  const got = await waitForEmail({ email, sinceMs: since, hint, want: p.kind === "code" ? "code" : "any", timeoutMs: 180000 });
+  if (!got) return { ok: false, note: "Nothing arrived in Gmail within 3 minutes (signed in to Gmail in this browser? Settings → Test Gmail). Finish it in the tab, then Try again." };
+  if (got.code) {
+    await call(tab, "fillCode", [got.code]);
+    await call(tab, "submitAccount");
+    await sleep(2500);
+    return { ok: true };
+  }
+  // Confirm link: open it in the job tab, which usually confirms and then
+  // shows the site's sign-in or the application.
+  step("Confirming your email");
+  await chrome.tabs.update(tab.id, { url: got.link });
+  await Page.waitForLoad(tab.id);
+  await sleep(2000);
+  return { ok: true, confirmed: true };
+}
+
+// Sign-up forms that also ask for your name, phone, etc.: fill those from
+// your profile with the regular autofill (passwords are left alone).
+async function fillProfileFields(tab, profile) {
+  await Page.autofill(tab, { profile, resumeFile: null }).catch(() => {});
 }
 
 export async function signInFlow(tab, { settings, profile, job = {}, step = () => {} }) {
@@ -141,10 +158,19 @@ export async function signInFlow(tab, { settings, profile, job = {}, step = () =
     await call(tab, "fillCredentials", [{ email: saved.email, password: saved.password }]);
     await call(tab, "submitAccount");
     await sleep(3000);
-    const c = await handleCode(tab, { email, hint, since, step, settings });
+    const c = await handleEmail(tab, { email, hint, since, step, settings });
     if (!c.ok) return c;
     p = await page(tab);
-    if (p.kind === "signin") return { ok: false, note: "Signing in with the saved password didn't work. Check it in Settings → Accounts & sign-in." };
+    if (p.kind === "signin") {
+      // A confirm link sends you back to sign in once more.
+      if (c.confirmed) {
+        await call(tab, "fillCredentials", [{ email: saved.email, password: saved.password }]);
+        await call(tab, "submitAccount");
+        await sleep(3000);
+        p = await page(tab);
+      }
+      if (p.kind === "signin") return { ok: false, note: "Signing in with the saved password didn't work. Check it in Settings → Accounts & sign-in." };
+    }
     return { ok: true, note: "Signed in" };
   }
 
@@ -159,20 +185,24 @@ export async function signInFlow(tab, { settings, profile, job = {}, step = () =
   step("Creating an account");
   const password = generatePassword();
   await saveAccount(key, { email, password, createdAt: Date.now(), company: job.company || "", url: tab.url });
+  await fillProfileFields(tab, profile);
   await call(tab, "fillCredentials", [{ email, password, allowTerms: true }]);
   if ((await Page.callAll(tab, "detectCaptcha")).some(Boolean)) return { ok: false, note: "The sign-up form has a CAPTCHA. Finish it in the tab (your password is saved in Settings), then Try again." };
   await call(tab, "submitAccount");
   await sleep(3500);
-  const c = await handleCode(tab, { email, hint, since, step, settings });
+  const c = await handleEmail(tab, { email, hint, since, step, settings });
   if (!c.ok) return c;
-  // Some sites send you back to sign in after signing up.
+  // Many sites send you back to sign in after signing up or confirming.
   p = await page(tab);
   if (p.kind === "signin") {
+    step("Signing in to the new account");
     await call(tab, "fillCredentials", [{ email, password }]);
     await call(tab, "submitAccount");
     await sleep(3000);
-    const c2 = await handleCode(tab, { email, hint, since, step, settings });
+    const c2 = await handleEmail(tab, { email, hint, since: Date.now() - 5000, step, settings });
     if (!c2.ok) return c2;
+    p = await page(tab);
+    if (p.kind === "signin") return { ok: false, note: "Made the account, but signing in to it didn't work. Your password is in Settings → Accounts & sign-in." };
   }
   await saveAccount(key, { verified: true });
   return { ok: true, note: "Created an account" };
