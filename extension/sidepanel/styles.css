@@ -252,3 +252,14 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 10px 0; }
 /* "Go" from the setup guide: briefly highlight the card */
 @keyframes spotlight { 0% { box-shadow: 0 0 0 0 var(--accent); } 30% { box-shadow: 0 0 0 4px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
 .spotlight { animation: spotlight 1.6s ease-out 2; }
+/* Icons (sidepanel/icons.js) */
+.ico { display: inline-flex; width: 15px; height: 15px; flex: none; vertical-align: -3px; margin-right: 6px; }
+.ico svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ico.brand svg { stroke: none; }
+.card h3 .ico { margin-right: 0; color: var(--accent); }
+summary .ico { color: var(--accent); }
+.tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.tabs button .ico { margin: 0; width: 14px; height: 14px; }
+.btn .ico { margin-right: 5px; }
+.drop-icon { color: var(--accent); margin-bottom: 4px; }
+.drop-icon .ico { width: 22px; height: 22px; margin: 0; }

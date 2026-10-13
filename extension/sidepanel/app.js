@@ -14,6 +14,7 @@ import * as E from "../lib/eligibility.js";
 import * as Fit from "../lib/fit.js";
 import * as Accounts from "../lib/accounts.js";
 import { gmailAccount, testGmail } from "../lib/gmail.js";
+import { icon } from "./icons.js";
 import * as Sources from "../lib/sources.js";
 import * as Autopilot from "../lib/autopilot.js";
 import * as Ans from "../lib/answers.js";
@@ -393,7 +394,7 @@ function renderApply() {
       h(
         "div",
         { class: "card" },
-        h("h3", {}, "No job page open"),
+        h("h3", {}, icon("apply"), "No job page open"),
         h("p", { class: "muted" }, "Open a job posting or application page in this tab, or pick one from the Jobs tab."),
         h("button", { class: "btn primary", onclick: () => switchTab("jobs") }, "Browse jobs")
       )
@@ -1277,7 +1278,7 @@ function autopilotCard() {
   const card = h(
     "div",
     { class: "card" },
-    h("h3", {}, "Autopilot", h("span", { class: "spacer" }), S.autopilotRunning ? h("span", { class: "pill info" }, spinner(), " running") : null),
+    h("h3", {}, icon("rocket"), "Autopilot", h("span", { class: "spacer" }), S.autopilotRunning ? h("span", { class: "pill info" }, spinner(), " running") : null),
     h(
       "p",
       { class: "small muted" },
@@ -1648,7 +1649,7 @@ function renderResumeTab() {
     },
     S.busy.parse
       ? [spinner(), " Reading your resume with AI… (15–40s)"]
-      : [h("strong", {}, S.resumePdf ? "Upload a new resume PDF" : "Upload your resume (PDF)"), h("div", { class: "small muted" }, "Click or drop a file here. AI turns it into editable boxes.")],
+      : [h("div", { class: "drop-icon" }, icon("upload")), h("strong", {}, S.resumePdf ? "Upload a new resume PDF" : "Upload your resume (PDF)"), h("div", { class: "small muted" }, "Click or drop a file here. AI turns it into editable boxes.")],
     fileInput
   );
   const uploadCard = h("div", { class: "card", id: "card-upload" }, drop);
@@ -2106,7 +2107,7 @@ function coverCard() {
   return h(
     "details",
     { class: "card", id: "card-cover", open: S.coverOpen ?? false, ontoggle: (e) => (S.coverOpen = e.target.open) },
-    h("summary", {}, h("strong", {}, "Cover letter"), h("span", { class: "small muted" }, " (optional)")),
+    h("summary", {}, icon("mail"), h("strong", {}, "Cover letter"), h("span", { class: "small muted" }, " (optional)")),
     h(
       "p",
       { class: "small muted" },
@@ -2190,10 +2191,10 @@ const acctUi = { reveal: {}, gmail: null }; // passwords shown; Gmail status
 function accountsCard() {
   const a = S.settings.accounts;
   const set = (k, v) => ((a[k] = v), saveSettings(), renderSettings());
-  const toggle = (k, label, note) =>
-    h("label", { class: "row small", style: { margin: "6px 0", alignItems: "flex-start" } }, h("input", { type: "checkbox", checked: !!a[k], onchange: (e) => set(k, e.target.checked) }), h("div", {}, label, note ? h("div", { class: "muted" }, note) : null));
+  const toggle = (k, label, note, ico) =>
+    h("label", { class: "row small", style: { margin: "8px 0", alignItems: "flex-start", flexWrap: "nowrap" } }, h("input", { type: "checkbox", checked: !!a[k], onchange: (e) => set(k, e.target.checked), style: { marginTop: "2px", flex: "none" } }), h("div", { style: { flex: 1, minWidth: 0 } }, ico ? icon(ico) : null, label, note ? h("div", { class: "muted" }, note) : null));
 
-  const card = h("div", { class: "card", id: "card-accounts" }, h("h3", {}, "Accounts & sign-in"));
+  const card = h("div", { class: "card", id: "card-accounts" }, h("h3", {}, icon("lock"), "Accounts & sign-in"));
   if (!a.enabled) {
     card.append(
       h("p", { class: "small muted" }, "Some sites (Workday and others) want an account before you can apply. JobPilot can sign in for you with \"Sign in with Google\", or make an account with your email, and read the verification codes they email you. Off until you turn it on."),
@@ -2225,9 +2226,9 @@ function accountsCard() {
   }
   const gm = acctUi.gmail;
   card.append(
-    toggle("google", "Use \"Sign in with Google\" when a site offers it", "Make sure you're signed in to Google in this browser with " + (S.profile.email || "your profile email") + "."),
-    toggle("createAccounts", "Create an account with my email when there's no Google option", "Uses a generated password per site, saved below. JobPilot accepts the site's terms for you."),
-    toggle("readGmail", "Read verification codes from my Gmail", gm === "…" ? "Checking Gmail…" : gm ? `Gmail inbox: ${gm}` : "Not signed in to Gmail in this browser: open gmail.com and sign in."),
+    toggle("google", "Use \"Sign in with Google\" when a site offers it", "Make sure you're signed in to Google in this browser with " + (S.profile.email || "your profile email") + ".", "google"),
+    toggle("createAccounts", "Create an account with my email when there's no Google option", "Uses a generated password per site, saved below. JobPilot accepts the site's terms for you.", "mail"),
+    toggle("readGmail", "Read verification codes from my Gmail", gm === "…" ? "Checking Gmail…" : gm ? `Gmail inbox: ${gm}` : "Not signed in to Gmail in this browser: open gmail.com and sign in.", "gmail"),
     S.profile.email && gm && gm !== "…" && gm.includes("@") && gm.toLowerCase() !== S.profile.email.toLowerCase()
       ? h("div", { class: "notice warn small" }, `Your profile email (${S.profile.email}) isn't the Gmail inbox above, so codes sent to it won't be found.`)
       : null
@@ -2286,7 +2287,7 @@ function accountsCard() {
               acctUi.test = r;
             }),
         },
-        S.busy.gmailTest ? [spinner(), " Testing…"] : "Test Gmail"
+        S.busy.gmailTest ? [spinner(), " Testing…"] : [icon("gmail"), "Test Gmail"]
       ),
       acctUi.test ? h("span", { class: `pill ${acctUi.test.ok ? "good" : "warn"}`, style: { whiteSpace: "normal" } }, acctUi.test.note) : null,
       h("span", { class: "spacer" }),
@@ -2306,7 +2307,7 @@ function bankCard() {
   return h(
     "details",
     { class: "card", id: "card-bank", open: S.bankOpen ?? false, ontoggle: (e) => (S.bankOpen = e.target.open) },
-    h("summary", {}, h("strong", {}, "Your answers"), h("span", { class: "small muted" }, ` (${written} written)`)),
+    h("summary", {}, icon("chat"), h("strong", {}, "Your answers"), h("span", { class: "small muted" }, ` (${written} written)`)),
     h(
       "p",
       { class: "small muted" },
@@ -2603,7 +2604,7 @@ function renderSettings() {
     ];
   }
 
-  const aiCard = h("div", { class: "card", id: "card-ai" }, h("h3", {}, "Connect AI"), providerPick, body, h("div", { class: "row" }, testButton, status));
+  const aiCard = h("div", { class: "card", id: "card-ai" }, h("h3", {}, icon("ai"), "Connect AI"), providerPick, body, h("div", { class: "row" }, testButton, status));
 
   const pf = (key, label, placeholder = "") =>
     h("label", { class: "field" }, h("span", {}, label), h("input", { type: "text", value: p[key] || "", placeholder, oninput: (e) => ((p[key] = e.target.value), saveProfile()) }));
@@ -2623,7 +2624,7 @@ function renderSettings() {
   const profileCard = h(
     "div",
     { class: "card", id: "card-profile" },
-    h("h3", {}, "Application profile"),
+    h("h3", {}, icon("user"), "Application profile"),
     h("p", { class: "small muted" }, "Used to autofill forms. Filled in automatically when your resume is parsed, so check it over."),
     h("div", { class: "grid2" }, pf("firstName", "First name"), pf("lastName", "Last name")),
     h("div", { class: "grid2" }, pf("preferredName", "Preferred name"), pf("pronouns", "Pronouns", "optional")),
@@ -2652,7 +2653,7 @@ function renderSettings() {
   const answersCard = h(
     "div",
     { class: "card" },
-    h("h3", {}, "Standard answers"),
+    h("h3", {}, icon("checklist"), "Standard answers"),
     h(
       "label",
       { class: "field" },
@@ -2685,7 +2686,7 @@ function renderSettings() {
   const filesCard = h(
     "div",
     { class: "card" },
-    h("h3", {}, "Files & formatting"),
+    h("h3", {}, icon("printer"), "Files & formatting"),
     h(
       "label",
       { class: "field" },
@@ -2755,7 +2756,7 @@ function renderSettings() {
   const sourceCard = h(
     "div",
     { class: "card" },
-    h("h3", {}, "Job sources (GitHub repos)"),
+    h("h3", {}, icon("list"), "Job sources (GitHub repos)"),
     h("p", { class: "small muted" }, "Any internship list repo works: SimplifyJobs-style listings.json or a README table. Jobs are merged and de-duplicated."),
     st.sources.map((src) =>
       h(
@@ -2822,7 +2823,7 @@ function renderSettings() {
   const autopilotCard = h(
     "div",
     { class: "card" },
-    h("h3", {}, "Autopilot"),
+    h("h3", {}, icon("rocket"), "Autopilot"),
     apBool("autoSubmit", "Submit automatically when every answer came from my profile or my own saved answers"),
     apBool("tailor", "Tailor the resume for each job"),
     apBool("notify", "Notify me about new matching jobs"),
@@ -2854,7 +2855,7 @@ function renderSettings() {
   const updatesCard = h(
     "div",
     { class: "card" },
-    h("h3", {}, "Updates"),
+    h("h3", {}, icon("refresh"), "Updates"),
     h(
       "p",
       { class: "small muted" },
@@ -2914,8 +2915,8 @@ function renderSettings() {
   const dataCard = h(
     "div",
     { class: "card" },
-    h("h3", {}, "Your data"),
-    h("p", { class: "small muted" }, "Everything (resume, profile, API key, applied list) is stored locally in this Chrome profile. It's sent only to Anthropic when you use an AI feature."),
+    h("h3", {}, icon("shield"), "Your data"),
+    h("p", { class: "small muted" }, "Everything (resume, profile, API keys, applied list, saved passwords) is stored locally in this Chrome profile. It\u2019s sent only to the AI provider you picked (Anthropic or OpenAI) when you use an AI feature."),
     h(
       "button",
       {
@@ -2933,7 +2934,7 @@ function renderSettings() {
   const instructionsCard = h(
     "div",
     { class: "card" },
-    h("h3", {}, "Instructions for AI"),
+    h("h3", {}, icon("pen"), "Instructions for AI"),
     h("p", { class: "small muted" }, "Things AI should always do when filling applications and tailoring, one per line. Feedback you mark \"Remember\" lands here."),
     textarea({ rows: 3, value: st.instructions || "", placeholder: "e.g. For internship vs co-op questions, pick the summer internship.", oninput: (e) => ((st.instructions = e.target.value), saveSettings()) })
   );
@@ -2951,7 +2952,7 @@ function renderSettings() {
   const targetCard = h(
     "div",
     { class: "card", id: "card-target" },
-    h("h3", {}, "What jobs to look for"),
+    h("h3", {}, icon("target"), "What jobs to look for"),
     h("p", { class: "small muted" }, tg.summary || "AI reads your resume and decides which roles fit: the fields, the degree level, and what to rule out. Every listing is then scored against this without AI."),
     h(
       "div",
@@ -3085,7 +3086,10 @@ async function init() {
   S.queue = (await store.get("autopilotQueue", [])).map((i) => (i.status === "running" ? { ...i, status: "queued", note: "" } : i));
   loadFonts(); // in the background; PDF building awaits it
 
-  document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
+  document.querySelectorAll(".tabs button").forEach((b) => {
+    b.prepend(icon(b.dataset.tab));
+    b.addEventListener("click", () => switchTab(b.dataset.tab));
+  });
 
   chrome.tabs.onActivated.addListener(refreshContext);
   chrome.tabs.onUpdated.addListener((tabId, info) => {
