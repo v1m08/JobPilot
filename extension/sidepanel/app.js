@@ -384,29 +384,9 @@ function renderApply() {
   const parts = [];
   const hasKey = aiReady();
   const hasResume = hasContent(S.base) || !!S.resumePdf;
-  const hasProfile = !!(S.profile.email && S.profile.firstName);
 
-  const aiOk = S.settings.aiVerified || (S.settings.provider !== "claude-code" && aiReady());
-  if (!aiOk || !hasResume || !hasProfile) {
-    const item = (done, text, action, tab) =>
-      h(
-        "div",
-        { class: "row", style: { margin: "4px 0" } },
-        h("span", { class: `pill ${done ? "good" : "warn"}` }, done ? "Done" : "To do"),
-        h("span", { class: "spacer" }, text),
-        !done && h("button", { class: "btn", onclick: () => switchTab(tab) }, action)
-      );
-    parts.push(
-      h(
-        "div",
-        { class: "card" },
-        h("h3", {}, "Get set up (2 minutes)"),
-        item(aiOk, "Connect AI", "Connect", "settings"),
-        item(hasResume, "Upload your resume", "Upload", "resume"),
-        item(hasProfile, "Check your application profile", "Open", "settings")
-      )
-    );
-  }
+  const guide = setupGuide();
+  if (guide) parts.push(guide);
 
   if (!S.job) {
     parts.push(
@@ -993,9 +973,9 @@ function setupSteps() {
   return [
     {
       id: "ai",
-      title: "Connect Claude",
-      what: "Settings → Connect Claude: pick your Claude subscription (runs through Claude Code on your Pro/Max plan) or paste an API key, then Save & test.",
-      done: S.settings.aiVerified || (S.settings.provider === "api" && !!S.settings.apiKey),
+      title: "Connect AI",
+      what: "Settings → Connect AI: pick your Claude or ChatGPT subscription (no API key needed), or paste an Anthropic or OpenAI API key, then Save & test.",
+      done: S.settings.aiVerified || (S.settings.provider !== "claude-code" && aiReady()),
       go: ["settings", "card-ai"],
     },
     {
@@ -2600,7 +2580,7 @@ function renderSettings() {
     ];
   }
 
-  const aiCard = h("div", { class: "card" }, h("h3", {}, "Connect AI"), providerPick, body, h("div", { class: "row" }, testButton, status));
+  const aiCard = h("div", { class: "card", id: "card-ai" }, h("h3", {}, "Connect AI"), providerPick, body, h("div", { class: "row" }, testButton, status));
 
   const pf = (key, label, placeholder = "") =>
     h("label", { class: "field" }, h("span", {}, label), h("input", { type: "text", value: p[key] || "", placeholder, oninput: (e) => ((p[key] = e.target.value), saveProfile()) }));
